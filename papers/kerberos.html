@@ -163,7 +163,7 @@ sc \\dc01 start pwn
 And your beacon/meterpreter or any agent that you are using, should be running in the
 target machine
 
--------------------------------------- ASREPRoast -----------------------------------------
+<b>-------------------------------------- ASREPRoast -----------------------------------------</b>
 
 The attack consists of looking for users without the need for kerberos pre-authentication,
 that is, users with the DONT_REQ_PREAUTH attribute set. This means that any user can send 
@@ -198,7 +198,7 @@ $krb5asrep$23$example1@DN1.LOCAL:7c2e70d3d46b4794b95.............
 After receiving the AS_REP along with the users hash, we can crack it using hashcat.
 Note: on a windows machine, you can use the Rubeus tool to carry out the attack. 
 
--------------------------------------- Pass-The-Ticket -----------------------------------------
+<b>-------------------------------------- Pass-The-Ticket -----------------------------------------</b>
 
 Let us now understand the concept of ptt (pass the ticket), and how it can be useful... We
 already see how to kerberoast, but, the kerberoasting attack could might be effective if
