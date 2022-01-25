@@ -1,0 +1,209 @@
+<html>
+	<head>
+		<title>perseph0ne</title>
+		<meta charset="utf-8">
+	<style>
+		@font-face { font-family: "gohu"; src: url("../assets/gohu.woff") format('woff'); }
+		body {
+			color: #cccccc;
+			background-color: #0c0d10;
+		}
+
+		pre { font-family: "gohu"; font-size: 14px; line-height: 1.0; }
+		a { text-decoration: none; color: grey; } 
+	</style>
+	</head>
+	<body>
+	<center><div style="display: inline-block; text-align: left;"><pre><br>
+  █████╗ ██████╗ ████████╗ ██████╗  ██████╗  ██████╗ 
+ ██╔══██╗██╔══██╗╚══██╔══╝██╔════╝ ██╔════╝ ██╔════╝ 
+ ███████║██████╔╝   ██║   ███████╗ ███████╗ ███████╗ 
+ ██╔══██║██╔═══╝    ██║   ██╔═══██╗██╔═══██╗██╔═══██╗
+ ██║  ██║██║        ██║   ╚██████╔╝╚██████╔╝╚██████╔╝
+ ╚═╝  ╚═╝╚═╝        ╚═╝    ╚═════╝  ╚═════╝  ╚═════╝ 
+                                                     
+	</pre></center>
+	<br><div style="display: inline-block;"><pre>
+[+]             One Way to Recon Targets
+
+[!] First, what is "recon"? is a short word to resume the term "Reconnaissance". Reconnaissance it's a 
+important step in Pentest and Hacking work,  is where your plan of attack, and detect possible target's 
+and vulnerabilities, and network information too.
+
+
+[?] How it works? 
+
+        [*] With some steps we can detect network ranges (CIDR's), possible alive target's, possible ASN 
+	information, and the main, understand the anatomy of this network / enterprise / corp
+
+[?] How i can start?
+[*] For purposes, i can show an example: 
+                [!] Just for purposes.
+
+1 - DETECTING IP ADDRESS AND UNDERSTAND THE NETWORK (passive):
+[+] TARGET: www.armada.mil.ec
+        [*] First we can make just a ping on the host to see the IP Address:
+                [+] On your terminal type: ping www.armada.mil.ec 
+        [*] He returns: PING www.armada.mil.ec (192.188.196.95) 56(84) bytes of data. Where 192.188.196.95 is the IP Address
+        [?] What we can make with just one ip address?
+                [*] We can query in a WHOIS server to see what have about this in the database
+                        [+] On your terminal type: whois 192.188.196.95
+                        [+] Retrieved:
+                                inetnum:     192.188.196.0/24
+                                status:      assigned
+                                aut-num:     N/A
+                                owner:       Instituto Oceanografico de la Armada
+                                ownerid:     EC-IOLA-LACNIC
+                                responsible: Cesar Robalino
+                                address:     Avenida 25 de Julio Vía Puerto Marítimo Base Naval Sur, 2601, -
+                                address:     090204 - Guayaquil - 
+                                country:     EC
+                                phone:       +593  43813440 [38353]
+                                owner-c:     CER43
+                                tech-c:      CER43
+                                abuse-c:     SCN3
+                                inetrev:     192.188.196.0/24
+                                nserver:     DNS.CEDIA.ORG.EC
+                                nsstat:      20220123 AA
+                                nslastaa:    20220123
+                                nserver:     NS1.CEDIA.ORG.EC
+                                nsstat:      20220123 AA
+                                nslastaa:    20220123
+                                nserver:     NS2.CEDIA.ORG.EC
+                                nsstat:      20220123 AA
+                                nslastaa:    20220123
+                                created:     19920724
+                                changed:     20191014
+
+                                nic-hdl:     CER43
+                                person:      Cesar Robalino
+                                e-mail:      regip@inocar.mil.ec
+                                address:     Av. 25 de Julio Vía Puerto Marítimo, 00, 
+                                address:      - Guayaquil - 
+                                country:     EC
+                                phone:       +593  042481300
+                                created:     20180622
+                                changed:     20210902
+
+                                nic-hdl:     SCN3
+                                person:      Security CEDIA NREN
+                                e-mail:      security@cedia.org.ec
+                                address:     Av. 12 de Abril Universidad Cuenca - Edif. Lab. Tecnologicos piso 3, s/n, AgustinCueva
+                                address:     EC010112 - Cuenca - AZ
+                                country:     EC
+                                phone:       +593 07 4051000 [4220]
+                                created:     20120524
+                                changed:     20120524
+
+                                % whois.lacnic.net accepts only direct match queries.
+                                % Types of queries are: POCs, ownerid, CIDR blocks, IP
+                                % and AS numbers.
+
+                        [*] Note that, here is the e-mail of register of this domain, who probably register 
+			    (Security CEDIA NREN) and IP Range information (192.188.196.0/24), and we can use this to 
+			    enumerate many hosts on the network
+
+                        [*] This is the network of the target, 192.188.196.0 -> 192.188.196.255 (256 hosts), remember this.
+
+
+                        [!] Now we need to use some tools, i can show 5 of this:
+                                [+] Amass (https://github.com/OWASP/Amass)
+                                [+] Subfinder (https://github.com/projectdiscovery/subfinder)
+                                [+] Httpx (https://github.com/projectdiscovery/httpx)
+                                [+] Nuclei (https://github.com/projectdiscovery/nuclei)
+                                [+] Nmap (https://github.com/nmap/nmap)
+
+2 - USING TOOLS TO ENUMERATE THE NETWORK AND FIND VULNERABILITIES (active):
+
+        2.1 - SUBDOMAIN ENUMERATION AND APPLICATION ENUMERATION:
+
+        [+] For first, we need to use the Amass tool
+                [*] After install execute the tool with the commands:
+                        [+] amass intel -cidr 192.188.196.0/24 -ip
+                        [?] What the command means?
+                                [+] The command "intel" it's for "intelligence" he use some search engines 
+				    to make a strong search for CIDR's, specific domains, ASN's and etc...
+
+                                [+] The -cidr flag means that we are using the method of search for CIDR's
+                                [+] The CIDR (IP Range) that we found above
+                                [+] The -ip flag means that we want see the IP Address of the host that he found
+                        [+] This retrieve for us:
+                                [+] inocar.mil.ec 192.188.196.2 (The host and respective ip address of him)
+
+                        [+] For now, we need see if have more domains associated to this host, it's time to use subfinder
+                        [+] subfinder -d inocar.mil.ec -silent -all -o list.txt
+                                [+] The -d flag means that we are passing a single host to make a search for subdomains
+                                [+] The -silent means that we don't want see banner
+                                [+] The -all means that we want use all search engines that he can search
+                                [+] -o list.txt means that we want save the output for a list called list.txt
+
+                        [+] This retrieve for us:
+                                erfen.inocar.mil.ec
+                                www.shoiar.inocar.mil.ec
+                                monitoreotsuk.inocar.mil.ec
+                                mail.inocar.mil.ec
+                                www.planetario.inocar.mil.ec
+                                cpanel.inocar.mil.ec
+                                shoiar.inocar.mil.ec
+                                webdisk.inocar.mil.ec
+                                sigefi.inocar.mil.ec
+                                www.inocar.mil.ec
+                                coos.inocar.mil.ec
+                                www.eimaga.inocar.mil.ec
+                                planetario.inocar.mil.ec
+                                webmail.inocar.mil.ec
+                                actaoceanografica.inocar.mil.ec
+                                gestionvdi.inocar.mil.ec
+                                hatysa.inocar.mil.ec
+                                intranet1.inocar.mil.ec
+                                bpm.inocar.mil.ec
+                                eimaga.inocar.mil.ec
+                                www.erfen.inocar.mil.ec
+
+                        [+] For this moment are intersing find some possible web servers to scan, for this, we can use httpx tool
+                        [+] Command: httpx -l list.txt -o web.txt -silent
+                                [+] -l means that we passing a list of hosts
+                                [+] -o means that we want the output for an archive called web.txt
+                                [+] -silent same of subfinder
+                        [+] This retrieve for us:
+                                https://mail.inocar.mil.ec
+                                https://monitoreotsuk.inocar.mil.ec
+
+                        [+] Ok, cool. 2 hosts are web servers, now we can pass to the next phase, the scan phase
+         
+        2.2 - FINDING VULNERABILITIES:
+                [+] Now that we have 2 web servers running unknown applications, we can use the nuclei to find vulnerabilities for us
+                [+] nuclei -t cves -l web.txt -silent
+                        [+] -t cves means that we just need the CVE's templates, the CVE's templates can search 
+			     vulnerabilities based on CVE's register, based in default behavior.
+
+                [+] This retrieved:
+                [CVE-2019-9670] [http] [critical] https://mail.inocar.mil.ec/Autodiscover/Autodiscover.xml
+                [CVE-2019-12616] [http] [medium] https://monitoreotsuk.inocar.mil.ec/phpmyadmin/
+
+                [+] Wow, a critical vulnerabilitie, a bit of this critical flaw above, it's a eXternal XML Entity + Server Side Request 
+		    Forgery that results on Remote Code Execution on the target system
+
+                [*] No, i don't forget you, nmap.
+                [*] Nmap is a complex tool, i need more of 1 paper to explain the power of this tool, but for now, i can restrict 
+		    the complex in one way to scan and determine other target, vulnerabilities, or simple recon with nmap
+
+                [+] We can use nmap -sV -sC -Pn -v -oA output 192.188.196.0/24, i can explain all parameters and what is doing
+                [+] -sV Scanning and getting banner of application (if possible)
+                [+] -sC makes a scan using the default NSE scripts, like http-methods to see http methods allowed, and etc...
+                [+] -Pn say to nmap don't check if alive, don't send a ping to target
+                [+] -v it's just for verbose, and see what is happening in execution
+                [+] -oA it's to output the scan in all formats, Grepable, XML and Nmap Default Output
+                [+] finally, the ip range (CIDR) that we found above, in the first step
+
+
+[!] With this, no, you can't hack the NASA and understand more complex networks, but it's a simple methodology that i use 
+to understand from more simple to more complex networks, off course, cases and cases, in some cases i don't use some tools 
+here, but it's a simple vision of targeting and enumerating network scopes
+
+[+] Can be useless for you, that want understand how the network works and which hosts are based on this network.
+
+[+] Hugs my friends, and alibaba.
+	</pre></div>
+	</body>
+</html>
